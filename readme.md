@@ -140,50 +140,6 @@ Observed:
 * `build/openxc7/vga_ok.bit`: ten color bars
 * `build/vivado/vga_ok.bit`: ten color bars
 
-## Evidence in the generated bitstream
-
-The parameter is not lost during synthesis. The intermediate FASM files are
-kept because the Makefile marks them as secondary targets. After `make`:
-
-```sh
-grep -E 'DOB_REG|ZINV_REGCLKB' build/openxc7/vga_fail.fasm
-grep -E 'DOB_REG|ZINV_REGCLKB' build/openxc7/vga_ok.fasm
-```
-
-For the failing build this reports the port B output-register configuration:
-
-```
-BRAM_L_X6Y45.RAMB18_Y0.DOB_REG
-BRAM_L_X6Y45.RAMB18_Y0.ZINV_REGCLKB
-BRAM_L_X6Y45.RAMB18_Y1.DOB_REG
-BRAM_L_X6Y45.RAMB18_Y1.ZINV_REGCLKB
-```
-
-The working build has none of these features. The tile coordinates can change
-between runs; the important part is that `vga_fail` emits `DOB_REG` and
-`vga_ok` does not. In the nextpnr JSON, `vga_fail` has `DOB_REG = 1` and
-`vga_ok` has `DOB_REG = 0`.
-
-This shows that nextpnr accepts the primitive parameter and emits the
-corresponding bits. The data nevertheless does not reach the VGA output on
-hardware. The `ZINV_REGCLKB` bit (register clock inversion) is a likely place
-to look, together with the `REGCEB`/reset routing of the output register.
-
-## Workaround
-
-Use `DOB_REG = 0` and add one register on the raw `DOBDO` output:
-
-```verilog
-always @(posedge clk_vga) begin
-    vga_read_pipeline <= vga_read_raw;
-end
-
-assign vga_read_data = DOB_REG ? vga_read_raw : vga_read_pipeline;
-```
-
-This is what `vga_memory.v` does and what `vga_ok.sv` selects. The extra fabric
-register costs very little and gives the same two-cycle latency as the built-in
-output register.
 
 ## Environment used
 
